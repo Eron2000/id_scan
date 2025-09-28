@@ -14,7 +14,7 @@ class MyApp extends StatelessWidget {
       title: 'School Guard Portal',
       theme: ThemeData(primarySwatch: Colors.indigo),
       debugShowCheckedModeBanner: false,
-      home: SchoolGuardApp(),
+      home: LoginScreen(),
     );
   }
 }
