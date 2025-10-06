@@ -659,8 +659,9 @@ class _ScanHistoryModalState extends State<_ScanHistoryModal> {
                                 firstDate: DateTime(2020),
                                 lastDate: DateTime.now(),
                               );
-                              if (picked != null)
+                              if (picked != null) {
                                 setModalState(() => startDate = picked);
+                              }
                             },
                             child: Text(
                               startDate == null
@@ -682,8 +683,9 @@ class _ScanHistoryModalState extends State<_ScanHistoryModal> {
                                 firstDate: DateTime(2020),
                                 lastDate: DateTime.now(),
                               );
-                              if (picked != null)
+                              if (picked != null) {
                                 setModalState(() => endDate = picked);
+                              }
                             },
                             child: Text(
                               endDate == null

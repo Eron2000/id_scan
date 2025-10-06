@@ -7,12 +7,6 @@ import 'package:vioguard/stud_info.dart';
 
 List<CameraDescription>? cameras;
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  cameras = await availableCameras();
-  runApp(const StudentIDScannerApp());
-}
-
 class StudentIDScannerApp extends StatelessWidget {
   const StudentIDScannerApp({super.key});
 
@@ -72,39 +66,35 @@ class _IDScannerScreenState extends State<IDScannerScreen> {
     try {
       setState(() => _isProcessing = true);
 
-      // Freeze frame
+      // Take picture
       XFile picture = await _cameraController!.takePicture();
       _capturedImage = File(picture.path);
-      setState(() {}); // show frozen image immediately
+      setState(() {});
 
-      // Run OCR directly on full image
+      // OCR
       String scannedText = await _extractTextFromFile(_capturedImage!);
-
       // Extract info
       final nameReg = RegExp(
         r'([A-Z][a-zA-Z]+,\s+(?:[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)(?:\s+[A-Z]\.?)?)',
-        caseSensitive: false,
       );
-      final courseReg = RegExp(r'\b([A-Z]{2,5})\b');
-      final studNoReg = RegExp(r'\b(20\d{2}[- ]?\d{4,6})\b');
+      // Allow any uppercase course-like word (e.g., BSIT, BSCPE, BSTM, etc.)
+      final courseReg = RegExp(r'\b[A-Z]{2,6}\b');
+      final studNoReg = RegExp(r'\b(20\d{6,8})\b');
 
       String name = nameReg.firstMatch(scannedText)?.group(0) ?? '';
       String course = courseReg.firstMatch(scannedText)?.group(0) ?? '';
       String studentNo = studNoReg.firstMatch(scannedText)?.group(0) ?? '';
+
       name = name.replaceAll(',', '').trim();
 
-      // Reset flash
-      await _cameraController!.setFlashMode(FlashMode.off);
-      setState(() => _flashOn = false);
-
-      // Retry if no valid detection (max 2 tries)
+      // Retry if failed
       if ((name.isEmpty || studentNo.isEmpty) && attempt < 2) {
         debugPrint("⚠️ OCR incomplete. Retrying...");
         return _scanID(attempt: attempt + 1);
       }
 
       if (name.isEmpty || studentNo.isEmpty) {
-        _showOverlayMessage("No valid ID detected");
+        _showOverlayMessage("No valid ID details detected");
         setState(() {
           _isProcessing = false;
           _capturedImage = null;
@@ -112,17 +102,17 @@ class _IDScannerScreenState extends State<IDScannerScreen> {
         return;
       }
 
-      // Navigate to next screen
+      // Turn off flash
+      await _cameraController!.setFlashMode(FlashMode.off);
+      setState(() => _flashOn = false);
+
+      // Navigate to next screen with extracted info
       if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => ViolationScreen(
-            name: name,
-            course: course,
-            studentNo: studentNo,
-            violationsCount: 0,
-          ),
+          builder: (_) =>
+              ViolationScreen(name: name, course: course, studentNo: studentNo),
         ),
       ).then((_) {
         setState(() {
@@ -190,7 +180,6 @@ class _IDScannerScreenState extends State<IDScannerScreen> {
       body: Stack(
         alignment: Alignment.center,
         children: [
-          // Freeze frame if captured, else camera preview
           _capturedImage != null
               ? Image.file(
                   _capturedImage!,
@@ -216,10 +205,10 @@ class _IDScannerScreenState extends State<IDScannerScreen> {
                   },
                 ),
 
-          // Scanner overlay (optional alignment guide)
+          // Overlay frame
           Positioned.fill(child: CustomPaint(painter: ScannerOverlay())),
 
-          // Flash toggle
+          // Flash button
           Positioned(
             top: 40,
             left: 20,
@@ -236,7 +225,7 @@ class _IDScannerScreenState extends State<IDScannerScreen> {
           // Capture button
           if (!_isProcessing)
             Positioned(
-              bottom: 40,
+              bottom: MediaQuery.of(context).padding.bottom + 30,
               child: GestureDetector(
                 onTap: _scanID,
                 child: Container(
@@ -245,6 +234,13 @@ class _IDScannerScreenState extends State<IDScannerScreen> {
                   decoration: const BoxDecoration(
                     color: Colors.blue,
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black38,
+                        blurRadius: 10,
+                        offset: Offset(0, 5),
+                      ),
+                    ],
                   ),
                   child: const Icon(
                     Icons.camera_alt,
@@ -255,7 +251,6 @@ class _IDScannerScreenState extends State<IDScannerScreen> {
               ),
             ),
 
-          // Processing overlay
           if (_isProcessing)
             Container(
               color: Colors.black45,
@@ -299,7 +294,7 @@ class ScannerOverlay extends CustomPainter {
     final bottom = top + rectHeight;
     const cornerSize = 40.0;
 
-    // Draw corners
+    // Corner lines
     canvas.drawLine(Offset(left, top), Offset(left + cornerSize, top), paint);
     canvas.drawLine(Offset(left, top), Offset(left, top + cornerSize), paint);
     canvas.drawLine(Offset(right, top), Offset(right - cornerSize, top), paint);

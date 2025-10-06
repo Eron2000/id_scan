@@ -1,34 +1,19 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:vioguard/dashboard.dart';
-
-void main() {
-  runApp(
-    const MaterialApp(
-      home: ViolationScreen(
-        name: "John Doe",
-        course: "Computer Science",
-        studentNo: "2021001",
-        violationsCount: 2,
-      ),
-      debugShowCheckedModeBanner: false,
-    ),
-  );
-}
 
 class ViolationScreen extends StatefulWidget {
   final String name;
   final String course;
   final String studentNo;
-  final int violationsCount;
 
   const ViolationScreen({
     super.key,
     required this.name,
     required this.course,
     required this.studentNo,
-    this.violationsCount = 0,
   });
 
   @override
@@ -40,7 +25,6 @@ class _ViolationScreenState extends State<ViolationScreen> {
   late final TextEditingController studentNumberController;
   late final TextEditingController courseController;
 
-  int violations = 0;
   File? _evidenceImage;
   String searchQuery = "";
   final Set<String> selectedViolations = {};
@@ -62,7 +46,6 @@ class _ViolationScreenState extends State<ViolationScreen> {
     fullNameController = TextEditingController(text: widget.name);
     studentNumberController = TextEditingController(text: widget.studentNo);
     courseController = TextEditingController(text: widget.course);
-    violations = widget.violationsCount;
   }
 
   @override
@@ -73,7 +56,7 @@ class _ViolationScreenState extends State<ViolationScreen> {
     super.dispose();
   }
 
-  /// Pick image from camera or gallery
+  // Pick image for evidence
   Future<void> _pickImage(ImageSource source) async {
     final pickedFile = await ImagePicker().pickImage(source: source);
     if (pickedFile != null) {
@@ -81,7 +64,7 @@ class _ViolationScreenState extends State<ViolationScreen> {
     }
   }
 
-  /// Show success popup then redirect
+  // Show success popup → redirect after 2s
   void _showSuccessDialog() {
     showDialog(
       context: context,
@@ -109,7 +92,7 @@ class _ViolationScreenState extends State<ViolationScreen> {
               ),
               const SizedBox(height: 10),
               const Text(
-                "Redirecting...",
+                "Redirecting to dashboard...",
                 style: TextStyle(fontSize: 14, color: Colors.black54),
               ),
             ],
@@ -118,21 +101,20 @@ class _ViolationScreenState extends State<ViolationScreen> {
       ),
     );
 
-    /// Auto close after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
+    Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop(); // close dialog
-        Navigator.pushReplacement(
+        Navigator.of(context, rootNavigator: true).pop(); // Close popup
+        Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => SchoolGuardHome()),
+          MaterialPageRoute(builder: (_) => const SchoolGuardHome()),
+          (route) => false,
         );
       }
     });
   }
 
-  /// Show confirmation dialog before submitting
+  // Confirmation dialog with date & time
   void _showConfirmationDialog() {
-    // Validate student info
     if (fullNameController.text.trim().isEmpty ||
         studentNumberController.text.trim().isEmpty ||
         courseController.text.trim().isEmpty) {
@@ -146,7 +128,6 @@ class _ViolationScreenState extends State<ViolationScreen> {
       return;
     }
 
-    // Validate violation selection
     if (selectedViolations.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -158,55 +139,183 @@ class _ViolationScreenState extends State<ViolationScreen> {
       return;
     }
 
-    // Show confirmation dialog if validations pass
+    final now = DateTime.now();
+    final formattedDate = DateFormat("MMMM dd, yyyy").format(now);
+    final formattedTime = DateFormat("hh:mm a").format(now);
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text("Confirm Violation Record"),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("👤 Name: ${fullNameController.text}"),
-              Text("🎓 Course: ${courseController.text}"),
-              Text("🆔 Student No: ${studentNumberController.text}"),
-              const SizedBox(height: 10),
-              const Text(
-                "Selected Violations:",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: selectedViolations.map((v) => Text("• $v")).toList(),
-              ),
-              const SizedBox(height: 10),
-              if (_evidenceImage != null)
-                const Text(
-                  "📷 Evidence attached",
-                  style: TextStyle(color: Colors.green),
-                )
-              else
-                const Text(
-                  "📷 No evidence",
-                  style: TextStyle(color: Colors.red),
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.gavel,
+                        color: Colors.indigo,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      "Confirm Violation",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.indigo,
+                      ),
+                    ),
+                  ],
                 ),
-            ],
+                const SizedBox(height: 16),
+                const Text(
+                  "Please review the details before recording.",
+                  style: TextStyle(color: Colors.black87),
+                ),
+                const SizedBox(height: 16),
+
+                _infoCard("👨‍🎓 Student Information", [
+                  _infoRow(Icons.person, "Name", fullNameController.text),
+                  _infoRow(Icons.school, "Course", courseController.text),
+                  _infoRow(
+                    Icons.badge,
+                    "Student No.",
+                    studentNumberController.text,
+                  ),
+                ]),
+                const SizedBox(height: 16),
+
+                _infoCard(
+                  "⚠️ Selected Violations",
+                  selectedViolations.map((v) => Text("• $v")).toList(),
+                  color: Colors.red.withOpacity(0.05),
+                ),
+
+                const SizedBox(height: 16),
+
+                _infoCard("📅 Date & Time", [
+                  _infoRow(Icons.calendar_today, "Date", formattedDate),
+                  _infoRow(Icons.access_time, "Time", formattedTime),
+                ], color: Colors.blue.withOpacity(0.05)),
+
+                const SizedBox(height: 16),
+
+                _infoCard("📸 Evidence", [
+                  Row(
+                    children: [
+                      Icon(
+                        _evidenceImage != null
+                            ? Icons.check_circle
+                            : Icons.cancel,
+                        color: _evidenceImage != null
+                            ? Colors.green
+                            : Colors.red,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _evidenceImage != null
+                              ? "Photo evidence attached."
+                              : "No evidence provided.",
+                        ),
+                      ),
+                    ],
+                  ),
+                ]),
+
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.indigo,
+                          side: const BorderSide(color: Colors.indigo),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text("Cancel"),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _showSuccessDialog();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigo,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          minimumSize: const Size(0, 48),
+                        ),
+                        icon: const Icon(Icons.check),
+                        label: const Text("Confirm"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Edit"),
+      ),
+    );
+  }
+
+  Widget _infoCard(String title, List<Widget> children, {Color? color}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color ?? Colors.grey.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context); // close confirmation
-              _showSuccessDialog(); // show success popup & redirect
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-            child: const Text("Confirm"),
-          ),
+          const Divider(),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: Colors.grey.shade700),
+          const SizedBox(width: 10),
+          Text("$label: ", style: const TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(child: Text(value)),
         ],
       ),
     );
@@ -221,22 +330,30 @@ class _ViolationScreenState extends State<ViolationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Record Violation"),
-        foregroundColor: Colors.white,
         backgroundColor: Colors.indigo,
+        foregroundColor: Colors.white,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(25.0),
-        child: SingleChildScrollView(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              _buildStudentInfoCard(),
-              const SizedBox(height: 15),
-              _buildViolationTypesCard(filteredViolations),
-              const SizedBox(height: 15),
-              _buildEvidenceUploader(),
-              if (_evidenceImage != null) _buildEvidencePreview(),
-              const SizedBox(height: 20),
-              _buildActionButtons(),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      _studentInfoCard(),
+                      const SizedBox(height: 15),
+                      _violationTypeCard(filteredViolations),
+                      const SizedBox(height: 15),
+                      _evidenceUploader(),
+                      if (_evidenceImage != null) _evidencePreview(),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _actionButtons(),
             ],
           ),
         ),
@@ -244,13 +361,12 @@ class _ViolationScreenState extends State<ViolationScreen> {
     );
   }
 
-  /// Student Information Card
-  Widget _buildStudentInfoCard() {
+  Widget _studentInfoCard() {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 4,
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -259,12 +375,12 @@ class _ViolationScreenState extends State<ViolationScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            _buildTextField(fullNameController, "Full Name"),
-            _buildTextField(studentNumberController, "Student Number"),
-            _buildTextField(courseController, "Course"),
-            const SizedBox(height: 12),
+            _textField(fullNameController, "Full Name"),
+            _textField(studentNumberController, "Student Number"),
+            _textField(courseController, "Course"),
+            const SizedBox(height: 10),
             Text(
-              "Violations: $violations",
+              "Violations Selected: ${selectedViolations.length}",
               style: const TextStyle(
                 color: Colors.red,
                 fontWeight: FontWeight.bold,
@@ -276,13 +392,12 @@ class _ViolationScreenState extends State<ViolationScreen> {
     );
   }
 
-  /// Violation Types Card
-  Widget _buildViolationTypesCard(List<String> filteredViolations) {
+  Widget _violationTypeCard(List<String> violations) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 4,
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -307,28 +422,27 @@ class _ViolationScreenState extends State<ViolationScreen> {
                 crossAxisCount: 2,
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
-                childAspectRatio: 3,
+                childAspectRatio: 3.5,
               ),
-              itemCount: filteredViolations.length,
-              itemBuilder: (_, index) {
-                final violation = filteredViolations[index];
-                final isSelected = selectedViolations.contains(violation);
+              itemCount: violations.length,
+              itemBuilder: (_, i) {
+                final violation = violations[i];
+                final selected = selectedViolations.contains(violation);
                 return GestureDetector(
                   onTap: () {
                     setState(() {
-                      isSelected
+                      selected
                           ? selectedViolations.remove(violation)
                           : selectedViolations.add(violation);
-                      violations = selectedViolations.length;
                     });
                   },
                   child: Container(
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: isSelected ? Colors.blueAccent : Colors.grey[200],
+                      color: selected ? Colors.indigo : Colors.grey[200],
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? Colors.blue : Colors.grey,
+                        color: selected ? Colors.indigoAccent : Colors.grey,
                         width: 1.5,
                       ),
                     ),
@@ -336,7 +450,7 @@ class _ViolationScreenState extends State<ViolationScreen> {
                       violation,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black,
+                        color: selected ? Colors.white : Colors.black,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -350,8 +464,7 @@ class _ViolationScreenState extends State<ViolationScreen> {
     );
   }
 
-  /// Upload Evidence Button
-  Widget _buildEvidenceUploader() {
+  Widget _evidenceUploader() {
     return ElevatedButton.icon(
       style: ElevatedButton.styleFrom(
         minimumSize: const Size(double.infinity, 50),
@@ -360,25 +473,35 @@ class _ViolationScreenState extends State<ViolationScreen> {
       onPressed: () {
         showModalBottomSheet(
           context: context,
-          builder: (_) => Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.camera_alt),
-                title: const Text("Take Photo"),
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(ImageSource.camera);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text("Choose from Gallery"),
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(ImageSource.gallery);
-                },
-              ),
-            ],
+          useSafeArea: true,
+          backgroundColor: Colors.white,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (_) => SafeArea(
+            child: Wrap(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.camera_alt, color: Colors.indigo),
+                  title: const Text("Take Photo"),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.camera);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.photo_library,
+                    color: Colors.indigo,
+                  ),
+                  title: const Text("Choose from Gallery"),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.gallery);
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -387,32 +510,50 @@ class _ViolationScreenState extends State<ViolationScreen> {
     );
   }
 
-  /// Evidence Preview with Remove Button
-  Widget _buildEvidencePreview() {
+  Widget _evidencePreview() {
     return Padding(
       padding: const EdgeInsets.only(top: 15),
-      child: Stack(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.file(
+          _evidenceImage!,
+          height: 180,
+          width: double.infinity,
+          fit: BoxFit.cover,
+        ),
+      ),
+    );
+  }
+
+  Widget _actionButtons() {
+    return SafeArea(
+      child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.file(
-              _evidenceImage!,
-              height: 180,
-              width: double.infinity,
-              fit: BoxFit.cover,
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text("Cancel"),
             ),
           ),
-          Positioned(
-            top: 8,
-            right: 8,
-            child: CircleAvatar(
-              backgroundColor: Colors.black54,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () {
-                  setState(() => _evidenceImage = null);
-                },
+          const SizedBox(width: 10),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _showConfirmationDialog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.indigo,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(0, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
+              child: const Text("Record Violation"),
             ),
           ),
         ],
@@ -420,41 +561,7 @@ class _ViolationScreenState extends State<ViolationScreen> {
     );
   }
 
-  /// Cancel / Record Buttons
-  Widget _buildActionButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        OutlinedButton(
-          onPressed: () => Navigator.pop(context),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(150, 70),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          child: const Text("Cancel"),
-        ),
-        ElevatedButton(
-          onPressed: _showConfirmationDialog, // <-- validation + confirmation
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blueAccent,
-            minimumSize: const Size(150, 70),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          child: const Text(
-            "Record Violation",
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Helper TextField
-  Widget _buildTextField(TextEditingController controller, String label) {
+  Widget _textField(TextEditingController controller, String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(

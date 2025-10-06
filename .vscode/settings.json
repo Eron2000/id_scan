@@ -1,4 +1,5 @@
 {
     "explorer.excludeGitIgnore": false,
-    "git.autorefresh": true
+    "git.autorefresh": true,
+    "git.ignoreLimitWarning": true
 }

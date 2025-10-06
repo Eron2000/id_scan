@@ -12,6 +12,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
+  final String sampleUsername = "admin";
+  final String samplePassword = "12345";
+
   @override
   void dispose() {
     usernameController.dispose();
@@ -20,15 +23,27 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _login() {
-    if (usernameController.text.isNotEmpty &&
-        passwordController.text.isNotEmpty) {
+    final enteredUsername = usernameController.text.trim();
+    final enteredPassword = passwordController.text.trim();
+
+    if (enteredUsername.isEmpty || enteredPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter username and password")),
+      );
+      return;
+    }
+
+    if (enteredUsername == sampleUsername &&
+        enteredPassword == samplePassword) {
+      // ✅ Successful login
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => SchoolGuardHome()),
       );
     } else {
+      // ❌ Invalid login
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter username and password")),
+        const SnackBar(content: Text("Invalid username or password")),
       );
     }
   }
@@ -56,6 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Text("Disciplinary Records Management System"),
                 const SizedBox(height: 40),
 
+                // Username field
                 TextField(
                   controller: usernameController,
                   decoration: InputDecoration(
@@ -68,6 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 20),
 
+                // Password field
                 TextField(
                   controller: passwordController,
                   obscureText: true,
@@ -81,6 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 30),
 
+                // Sign In button
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color.fromARGB(255, 0, 3, 163),
